@@ -2,3 +2,6 @@
 *.m4a
 *.mp3
 *_whisper.json
+speakers.db
+speakers.db-journal
+__pycache__/
