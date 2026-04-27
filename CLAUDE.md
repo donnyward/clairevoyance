@@ -36,23 +36,42 @@ HSR - Hypervisor Soft Restart
 KSR - Kernel Soft Reboot
 1.86 - Redstone verison 1.86
 VFP - TODO
+9/14 - Job numbers 9 and 14, executed in ATLAS Studio to automatically install a build of Windows on a test machine
+OOF - Out Of Office
+vmphuum - An executable, stands for VM-PHU User Mode
+vTeam - virtual team, like a VPN but made up of people
 
 # People / Org Structure
 
 - David Hepkin (M3)
   - Bruce Sherwin (M2)
     - Kevin Broas (M1)
-      - Donny Ward
+      - Bhargav Shah
+      - Donny Ward (me)
       - Duen-wen Hsiao
       - Dustin Douglas
+      - Ethan Young
       - Justin Cheng
       - Sebastian
+      - Siddhant Bhagat
       - Patrick Perrier
-      - Bhargav Shah
       - Vignesh Shenoy
+    - Ahu
+    - Vijay
+    - Ben Hillis
 
-      Vijay
+Matt Kurjanowicz
+Lynn Kleymans
+Kris Harper
+Josh Ebersol
+Brian Young
+
+Sunil Muthuswamy
+
 Sai
 Taylor Stark
 Shaikot
+Chase Meyer
+Ben Pye
+
 
