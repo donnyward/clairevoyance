@@ -122,7 +122,7 @@ for i in "${!queue_files[@]}"; do
     --hf_token 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
     --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
     --output_format json
-    --language English
+    --language en
     --output_dir "$dir"
   )
   if [[ -n "$spk" ]]; then
