@@ -21,11 +21,14 @@ import os
 import sqlite3
 import subprocess
 import sys
+import tempfile
 
 
 HF_TOKEN = "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"
 DB_FILENAME = "speakers.db"
 MIN_SAVE_SECONDS = 3.0
+MAX_SAVE_SECONDS = 20.0  # cap enrollment clip length; past ~20s quality plateaus
+                         # and the odds of diarization bleeding in other speakers climb
 EMBED_MODEL = "pyannote/wespeaker-voxceleb-resnet34-LM"
 
 SCHEMA = """
@@ -154,6 +157,30 @@ def save_embedding(conn, speaker_id, vec, source_file, start, end):
     )
 
 
+def play_segment(wav, sr):
+    """Write wav to a temp file and start afplay in the background. Returns
+    (proc, path); pass both to stop_playback to clean up."""
+    import soundfile as sf
+    fd, path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    sf.write(path, wav, sr)
+    proc = subprocess.Popen(["afplay", path])
+    return proc, path
+
+
+def stop_playback(proc, path):
+    """Kill afplay if still running, then unlink the temp file."""
+    try:
+        proc.terminate()
+        proc.wait(timeout=1)
+    except Exception:
+        pass
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def extract_audio(audio_path, start, end):
     """Pull a 16kHz mono WAV segment out of audio_path via ffmpeg. Returns (wav, sr)."""
     import numpy as np
@@ -208,15 +235,61 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
 
     print(f"\n--- {os.path.basename(json_path)} ---\n")
     name_map = {}
-    pending_saves = []  # (name, vec, source_file, start, end) — flushed on success
     for sp in speakers:
-        text, start, end = find_longest_line(groups, sp)
+        _, start, end = find_longest_line(groups, sp)
         duration = end - start
+        embed_end = min(end, start + MAX_SAVE_SECONDS)
+        embed_duration = embed_end - start
+        # Build the ID hint from ONLY the words attributed to this speaker inside
+        # the enrollment window — user uses this to spot mis-attributed one-word
+        # utterances (diarization bleed) before deciding to save.
+        enrolled_text = " ".join(
+            w for sp2, w, ws, _ in words
+            if sp2 == sp and start <= ws < embed_end and w
+        )
         ts = format_timestamp(start)
-        print(f'  {sp} (longest line at {ts}, {duration:.1f}s):')
-        print(f'   "{text}"')
-        name = input(f"Who is {sp}? (type 'skip' to skip this file) ").strip()
-        if name.lower() == "skip":
+        if embed_duration < duration:
+            ts_end = format_timestamp(embed_end)
+            print(f'  {sp} (longest run: {duration:.1f}s -> enrolling '
+                  f'{embed_duration:.1f}s from {ts} to {ts_end}):')
+        else:
+            print(f'  {sp} (longest line at {ts}, {duration:.1f}s):')
+        print(f'   "{enrolled_text}"')
+
+        # Extract the enrollment clip once and play it during BOTH the naming
+        # prompt and (if applicable) the save prompt. Same bytes the embedder
+        # will see — what you hear is what gets stored.
+        wav, sr = None, None
+        if os.path.exists(audio_path):
+            try:
+                wav, sr = extract_audio(audio_path, start, embed_end)
+            except Exception as e:
+                print(f"  !! audio extract failed: {e}")
+
+        proc, tmppath = None, None
+        try:
+            if wav is not None:
+                proc, tmppath = play_segment(wav, sr)
+            replay_hint = ", 'r' to replay" if wav is not None else ""
+            while True:
+                name = input(f"Who is {sp}? ('s' to skip{replay_hint}) ").strip()
+                if name.lower() == "r" and wav is not None:
+                    stop_playback(proc, tmppath)
+                    proc, tmppath = play_segment(wav, sr)
+                    continue
+                break
+        finally:
+            if proc is not None:
+                stop_playback(proc, tmppath)
+                proc, tmppath = None, None
+
+        if name.lower() in ("s", "skip"):
+            # Undo any embeddings committed from this file earlier in the session
+            # so "skip" still means "this file's diarization is bad, discard it".
+            if conn is not None:
+                conn.execute(
+                    "DELETE FROM embeddings WHERE source_file = ?", (audio_path,))
+                conn.commit()
             print(f"  Skipping {os.path.basename(json_path)} (bad diarization).")
             return False
         if not name:
@@ -226,21 +299,31 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
         can_save = (
             embed_inference is not None
             and conn is not None
-            and name != sp                    # not a real person name
-            and duration >= MIN_SAVE_SECONDS  # too short for a reliable embedding
-            and os.path.exists(audio_path)
+            and name != sp                          # not a real person name
+            and embed_duration >= MIN_SAVE_SECONDS  # too short for a reliable embedding
+            and wav is not None
         )
         if can_save:
-            ans = input("Save embedding? [y/N] ").strip().lower()
-            if ans in ("y", "yes"):
-                try:
-                    wav, sr = extract_audio(audio_path, start, end)
+            try:
+                proc, tmppath = play_segment(wav, sr)
+                while True:
+                    ans = input("Save embedding? [y/N/r=replay] ").strip().lower()
+                    if ans != "r":
+                        break
+                    stop_playback(proc, tmppath)
+                    proc, tmppath = play_segment(wav, sr)
+                if ans in ("y", "yes"):
                     vec = compute_embedding(embed_inference, wav, sr)
-                    pending_saves.append((name, vec, audio_path, start, end))
-                    print(f"  -> queued ({duration:.1f}s from "
+                    speaker_id = get_or_create_speaker(conn, name)
+                    save_embedding(conn, speaker_id, vec, audio_path, start, embed_end)
+                    conn.commit()
+                    print(f"  -> saved ({embed_duration:.1f}s from "
                           f"{os.path.basename(audio_path)} -> {name})")
-                except Exception as e:
-                    print(f"  !! Failed to embed segment: {e}")
+            except Exception as e:
+                print(f"  !! Failed to save embedding: {e}")
+            finally:
+                if proc is not None:
+                    stop_playback(proc, tmppath)
         print()
 
     # Merge consecutive groups from the same speaker into blocks
@@ -267,14 +350,6 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
             if i < len(blocks) - 1:
                 f.write("\n")
     print(f"  Wrote {txt_path}")
-
-    # Commit buffered embedding saves only now that the file succeeded
-    if pending_saves and conn is not None:
-        for name, vec, src, st, en in pending_saves:
-            speaker_id = get_or_create_speaker(conn, name)
-            save_embedding(conn, speaker_id, vec, src, st, en)
-        conn.commit()
-
     return True
 
 
