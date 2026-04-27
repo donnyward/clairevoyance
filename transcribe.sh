@@ -7,7 +7,7 @@ trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
 all_files=()
 while IFS= read -r f; do
   all_files+=("$f")
-done < <(find . -type f \( -iname '*.m4a' -o -iname '*.mp3' \) | sort)
+done < <(find . -type f \( -iname '*.m4a' -o -iname '*.mp3' -o -iname '*.flac' \) | sort)
 
 total_all=${#all_files[@]}
 if [ "$total_all" -eq 0 ]; then

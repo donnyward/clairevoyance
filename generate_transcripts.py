@@ -371,10 +371,11 @@ def main():
     count_skipped_no_json = 0
     count_skipped_diarization = 0
     for root, _dirs, files in os.walk(script_dir):
+        _dirs.sort()
         for fname in sorted(files):
-            if not fname.endswith(".m4a"):
+            base, ext = os.path.splitext(fname)
+            if ext.lower() not in (".m4a", ".mp3", ".flac"):
                 continue
-            base = fname[:-4]  # strip .m4a
             json_path = os.path.join(root, base + "_whisper.json")
             txt_path = os.path.join(root, base + "_whisper.txt")
             audio_path = os.path.join(root, fname)
