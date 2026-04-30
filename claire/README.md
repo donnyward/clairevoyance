@@ -4,7 +4,7 @@ Real-time speech transcription with speaker diarization, running locally on Appl
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/) and a one-time model download.
+Requires [uv](https://docs.astral.sh/uv/). Dependencies and the Python interpreter are managed via `pyproject.toml` + `uv.lock` — `uv run` creates `.venv/` and installs everything on first invocation.
 
 ```bash
 # 1. Get a Hugging Face token and accept the pyannote terms:
@@ -12,8 +12,10 @@ Requires [uv](https://docs.astral.sh/uv/) and a one-time model download.
 #    https://huggingface.co/pyannote/segmentation-3.0
 
 # 2. Download all models (~800MB for whisper large-v3-turbo + smaller models)
-HF_TOKEN=hf_xxx ./download_models.py
+HF_TOKEN=hf_xxx uv run download_models.py
 ```
+
+To update dependencies after editing `pyproject.toml`, run `uv sync` (or just `uv run claire.py` — sync happens implicitly).
 
 ## Usage
 

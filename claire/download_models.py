@@ -1,16 +1,5 @@
-#!/usr/bin/env -S uv run --python 3.13
-# /// script
-# requires-python = ">=3.13"
-# dependencies = [
-#   "huggingface-hub",
-#   "torch",
-#   "torchaudio",
-#   "resemblyzer",
-#   "mlx-whisper",
-#   "truststore",
-# ]
-# ///
-"""One-time model download. Run: HF_TOKEN=hf_xxx uv run ~/bin/download_models.py"""
+#!/usr/bin/env -S uv run
+"""One-time model download. Run: HF_TOKEN=hf_xxx uv run download_models.py"""
 import os, sys, truststore
 truststore.inject_into_ssl()
 os.environ["HF_HUB_DISABLE_XET"] = "1"

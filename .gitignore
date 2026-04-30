@@ -5,3 +5,4 @@
 speakers.db
 speakers.db-journal
 __pycache__/
+.venv/

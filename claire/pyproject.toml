@@ -1,0 +1,16 @@
+[project]
+name = "claire"
+version = "0.1.0"
+description = "Real-time transcription with speaker segmentation"
+requires-python = ">=3.13"
+dependencies = [
+    "huggingface-hub",
+    "mlx-whisper",
+    "numpy",
+    "pyannote.audio",
+    "resemblyzer",
+    "sounddevice",
+    "torch",
+    "torchaudio",
+    "truststore",
+]

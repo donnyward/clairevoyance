@@ -1,15 +1,5 @@
-#!/usr/bin/env -S uv run --python 3.13
-# /// script
-# requires-python = ">=3.13"
-# dependencies = [
-#   "mlx-whisper",
-#   "pyannote.audio",
-#   "resemblyzer",
-#   "sounddevice",
-#   "torch",
-# ]
-# ///
-"""live.py - real-time transcription with speaker segmentation."""
+#!/usr/bin/env -S uv run
+"""claire.py - real-time transcription with speaker segmentation."""
 import os, datetime, collections, threading, queue
 import numpy as np
 import sounddevice as sd
