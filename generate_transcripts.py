@@ -10,10 +10,13 @@
 # ///
 """Generate speaker-named transcripts from Whisper JSON diarization files.
 
-On top of today's name-prompt flow, this also offers to save a voice embedding
-for each named speaker (pyannote/wespeaker) into a local SQLite DB. Embeddings
-are only saved when you explicitly type 'y' at the save prompt — so you
-manually curate which segments get enrolled.
+For each speaker WhisperX labelled (SPEAKER_XX), prompts for a name and writes
+a named transcript. When pyannote/wespeaker is available, this also:
+  - suggests ranked candidate names from the local DB (if prior enrollments
+    exist); type a digit to accept a candidate.
+  - offers `Save embedding? [y/N]` per speaker — opt-in only, so the DB stays
+    curated by your judgement.
+  - logs every naming attempt to `match_log` for later threshold tuning.
 """
 import io
 import json
@@ -31,6 +34,9 @@ MAX_SAVE_SECONDS = 20.0  # cap enrollment clip length; past ~20s quality plateau
                          # and the odds of diarization bleeding in other speakers climb
 EMBED_MODEL = "pyannote/wespeaker-voxceleb-resnet34-LM"
 
+SHOW_MIN = 0.50          # don't surface a candidate below this cosine similarity
+TOP_K = 3                # how many candidates to show
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS speakers (
   id   INTEGER PRIMARY KEY,
@@ -46,6 +52,18 @@ CREATE TABLE IF NOT EXISTS embeddings (
   end_time     REAL    NOT NULL,
   created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (speaker_id, source_file, start_time)
+);
+
+CREATE TABLE IF NOT EXISTS match_log (
+  id           INTEGER PRIMARY KEY,
+  timestamp    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  source_file  TEXT    NOT NULL,
+  start_time   REAL    NOT NULL,
+  end_time     REAL    NOT NULL,
+  top_match    TEXT,
+  top_score    REAL,
+  user_entered TEXT    NOT NULL,
+  auto_picked  INTEGER NOT NULL
 );
 """
 
@@ -157,6 +175,24 @@ def save_embedding(conn, speaker_id, vec, source_file, start, end):
     )
 
 
+def top_k_matches(conn, query_vec, k, min_score):
+    """Return up to k (name, score) tuples ranked by max cosine sim per speaker.
+    Both query_vec and stored vecs are L2-normalized, so dot product == cosine."""
+    import numpy as np
+    rows = conn.execute(
+        "SELECT s.name, e.vec FROM embeddings e "
+        "JOIN speakers s ON s.id = e.speaker_id"
+    ).fetchall()
+    by_speaker = {}
+    for name, blob in rows:
+        vec = np.frombuffer(blob, dtype=np.float32)
+        score = float(np.dot(query_vec, vec))
+        if name not in by_speaker or score > by_speaker[name]:
+            by_speaker[name] = score
+    ranked = sorted(by_speaker.items(), key=lambda x: -x[1])
+    return [(n, s) for n, s in ranked if s >= min_score][:k]
+
+
 def play_segment(wav, sr):
     """Write wav to a temp file and start afplay in the background. Returns
     (proc, path); pass both to stop_playback to clean up."""
@@ -266,14 +302,37 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
             except Exception as e:
                 print(f"  !! audio extract failed: {e}")
 
+        # Pre-compute the query embedding so the same vector powers BOTH the
+        # suggestion lookup and the save (no double-compute on 'y').
+        query_vec = None
+        matches = []
+        if wav is not None and embed_inference is not None:
+            try:
+                query_vec = compute_embedding(embed_inference, wav, sr)
+                if conn is not None:
+                    matches = top_k_matches(conn, query_vec, TOP_K, SHOW_MIN)
+            except Exception as e:
+                print(f"  !! embedding compute failed: {e}")
+
+        if matches:
+            for i, (mname, mscore) in enumerate(matches, 1):
+                print(f"    [{i}] {mname:<24} {mscore:.2f}")
+
+        hints = []
+        if matches:
+            hints.append(f"1-{len(matches)}=pick")
+        hints.append("'s' to skip")
+        if wav is not None:
+            hints.append("'r' to replay")
+        hint_str = ", ".join(hints)
+
         proc, tmppath = None, None
         try:
             if wav is not None:
                 proc, tmppath = play_segment(wav, sr)
-            replay_hint = ", 'r' to replay" if wav is not None else ""
             while True:
-                name = input(f"Who is {sp}? ('s' to skip{replay_hint}) ").strip()
-                if name.lower() == "r" and wav is not None:
+                raw = input(f"Who is {sp}? ({hint_str}) ").strip()
+                if raw.lower() == "r" and wav is not None:
                     stop_playback(proc, tmppath)
                     proc, tmppath = play_segment(wav, sr)
                     continue
@@ -283,7 +342,7 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
                 stop_playback(proc, tmppath)
                 proc, tmppath = None, None
 
-        if name.lower() in ("s", "skip"):
+        if raw.lower() in ("s", "skip"):
             # Undo any embeddings committed from this file earlier in the session
             # so "skip" still means "this file's diarization is bad, discard it".
             if conn is not None:
@@ -292,8 +351,18 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
                 conn.commit()
             print(f"  Skipping {os.path.basename(json_path)} (bad diarization).")
             return False
-        if not name:
+
+        # Resolve raw input. Digit picks a candidate when matches are present;
+        # empty input falls back to the SPEAKER_XX label (existing v0 behavior);
+        # anything else is taken as a literal name.
+        auto_picked = False
+        if raw.isdigit() and matches and 1 <= int(raw) <= len(matches):
+            name = matches[int(raw) - 1][0]
+            auto_picked = True
+        elif raw == "":
             name = sp
+        else:
+            name = raw
         name_map[sp] = name
 
         can_save = (
@@ -301,7 +370,7 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
             and conn is not None
             and name != sp                          # not a real person name
             and embed_duration >= MIN_SAVE_SECONDS  # too short for a reliable embedding
-            and wav is not None
+            and query_vec is not None
         )
         if can_save:
             try:
@@ -313,9 +382,8 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
                     stop_playback(proc, tmppath)
                     proc, tmppath = play_segment(wav, sr)
                 if ans in ("y", "yes"):
-                    vec = compute_embedding(embed_inference, wav, sr)
                     speaker_id = get_or_create_speaker(conn, name)
-                    save_embedding(conn, speaker_id, vec, audio_path, start, embed_end)
+                    save_embedding(conn, speaker_id, query_vec, audio_path, start, embed_end)
                     conn.commit()
                     print(f"  -> saved ({embed_duration:.1f}s from "
                           f"{os.path.basename(audio_path)} -> {name})")
@@ -324,6 +392,23 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
             finally:
                 if proc is not None:
                     stop_playback(proc, tmppath)
+
+        # Log the naming attempt for later threshold tuning. Only when we had
+        # an embedding to query with — otherwise there's nothing to calibrate.
+        if query_vec is not None and conn is not None:
+            top_match = matches[0][0] if matches else None
+            top_score = matches[0][1] if matches else None
+            try:
+                conn.execute(
+                    "INSERT INTO match_log "
+                    "(source_file, start_time, end_time, top_match, top_score, "
+                    "user_entered, auto_picked) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (audio_path, start, embed_end, top_match, top_score, name,
+                     int(auto_picked)),
+                )
+                conn.commit()
+            except Exception as e:
+                print(f"  !! match_log write failed: {e}")
         print()
 
     # Merge consecutive groups from the same speaker into blocks
