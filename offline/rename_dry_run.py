@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Rename files within each recording folder so the basename matches the folder name.
 
 Preserves known suffixes (_whisper, _googlerecorder, _voicememo) and file extensions.

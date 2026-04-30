@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
 
 # --- Phase 1: discover audio files ---
@@ -129,9 +131,9 @@ for i in "${!queue_files[@]}"; do
     wx_args+=(--min_speakers "$spk" --max_speakers "$spk")
   fi
 
-  echo "  running: uvx whisperx ${wx_args[*]} \"$tmp_wav\""
+  echo "  running: uv run --project \"$SCRIPT_DIR\" whisperx ${wx_args[*]} \"$tmp_wav\""
 
-  if ! uvx whisperx "${wx_args[@]}" "$tmp_wav" </dev/null; then
+  if ! uv run --project "$SCRIPT_DIR" whisperx "${wx_args[@]}" "$tmp_wav" </dev/null; then
     echo "!! whisperx failed on: $src -- continuing"
     failed_files+=("whisperx: $src")
     rm -f "$tmp_wav"

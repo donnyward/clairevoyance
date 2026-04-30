@@ -1,13 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "pyannote.audio>=3.1",
-#   "soundfile",
-#   "numpy",
-#   "torch",
-# ]
-# ///
+#!/usr/bin/env -S uv run
 """Generate speaker-named transcripts from Whisper JSON diarization files.
 
 For each speaker WhisperX labelled (SPEAKER_XX), prompts for a name and writes

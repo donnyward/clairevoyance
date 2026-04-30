@@ -1,0 +1,12 @@
+[project]
+name = "offline"
+version = "0.1.0"
+description = "Offline batch transcription + speaker enrollment from recorded audio"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pyannote.audio>=3.1",
+    "soundfile",
+    "torch",
+    "whisperx",
+]
