@@ -46,11 +46,17 @@ Both scripts:
 
 ### Generate named transcripts from `*_whisper.json`
 
+Walks the current directory (or the directory passed as the first arg) for audio files with adjacent `*_whisper.json` and writes named transcripts:
+
 ```bash
-uv run --project /path/to/offline /path/to/offline/generate_transcripts.py <whisper.json> [...]
+# Process the cwd
+uv run --project /path/to/offline /path/to/offline/generate_transcripts.py
+
+# Or point at a specific directory
+uv run --project /path/to/offline /path/to/offline/generate_transcripts.py /path/to/recordings
 ```
 
-Prompts for a name per `SPEAKER_XX`, suggests ranked candidates from the local `speakers.db` when prior enrollments exist, and optionally enrolls new embeddings.
+Prompts for a name per `SPEAKER_XX`, suggests ranked candidates from the local `speakers.db` when prior enrollments exist, and optionally enrolls new embeddings. The DB stays anchored at `offline/speakers.db` regardless of which directory is processed.
 
 ### Normalize recording filenames
 
