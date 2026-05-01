@@ -12,8 +12,8 @@ Requires [uv](https://docs.astral.sh/uv/). Dependencies and the Python interpret
 #    https://huggingface.co/pyannote/segmentation-3.0
 
 # 2. Download all models (~800MB for whisper large-v3-turbo + smaller models).
-#    The script lives at the repo root and seeds caches for both subprojects.
-HF_TOKEN=hf_xxx uv run ../download_models.py
+#    The downloader lives in ../download/ and seeds caches for both subprojects.
+cd ../download && HF_TOKEN=hf_xxx uv run download_models.py && cd -
 ```
 
 To update dependencies after editing `pyproject.toml`, run `uv sync` (or just `uv run claire.py` — sync happens implicitly).

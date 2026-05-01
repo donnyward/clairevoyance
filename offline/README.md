@@ -13,11 +13,11 @@ A Hugging Face token with the pyannote terms accepted is required; the token is 
 ### Pre-download models for offline use
 
 The shell scripts and `generate_transcripts.py` set `HF_HUB_OFFLINE=1`, so all
-models must already be cached locally. Run the top-level downloader once with
-internet access to seed the caches:
+models must already be cached locally. Run the downloader in `../download/`
+once with internet access to seed the caches:
 
 ```bash
-HF_TOKEN=hf_xxx uv run ../download_models.py
+cd ../download && HF_TOKEN=hf_xxx uv run download_models.py
 ```
 
 Subsequent runs work without network as long as package versions in `uv.lock`

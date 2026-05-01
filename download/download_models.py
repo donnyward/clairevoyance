@@ -1,15 +1,4 @@
-#!/usr/bin/env -S uv run
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "huggingface-hub",
-#   "truststore",
-#   "torch",
-#   "torchaudio",
-#   "whisperx",
-#   "resemblyzer",
-# ]
-# ///
+#!/usr/bin/env -S uv run --project .
 """One-time model download for both claire/ and offline/ subprojects.
 
 Run: HF_TOKEN=hf_xxx uv run download_models.py
@@ -30,7 +19,9 @@ os.environ["HF_HUB_DISABLE_XET"] = "1"
 def main():
     token = os.environ.get("HF_TOKEN")
     if not token:
-        token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hf_token")
+        token_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hf_token"
+        )
         if os.path.exists(token_path):
             with open(token_path, "r", encoding="utf-8") as f:
                 token = f.read().strip()
@@ -83,9 +74,9 @@ def main():
     from pyannote.audio import Model
     Model.from_pretrained("pyannote/wespeaker-voxceleb-resnet34-LM", use_auth_token=token)
 
-    print("\n[claire] resemblyzer VoiceEncoder (~17MB)...")
-    from resemblyzer import VoiceEncoder
-    VoiceEncoder()
+    # Note: resemblyzer's VoiceEncoder weights ship bundled in the wheel
+    # (resemblyzer/pretrained.pt) — installing the package in claire/ is enough,
+    # no warm-up needed here.
 
     print("\nDone. All models cached locally. Set HF_HUB_OFFLINE=1 at runtime.")
 
