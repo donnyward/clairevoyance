@@ -331,6 +331,8 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
                     stop_playback(proc, tmppath)
                     proc, tmppath = play_segment(wav, sr)
                     continue
+                if raw == "":
+                    continue
                 break
         finally:
             if proc is not None:
@@ -348,14 +350,11 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
             return False
 
         # Resolve raw input. Digit picks a candidate when matches are present;
-        # empty input falls back to the SPEAKER_XX label (existing v0 behavior);
         # anything else is taken as a literal name.
         auto_picked = False
         if raw.isdigit() and matches and 1 <= int(raw) <= len(matches):
             name = matches[int(raw) - 1][0]
             auto_picked = True
-        elif raw == "":
-            name = sp
         else:
             name = raw
         name_map[sp] = name
@@ -363,7 +362,6 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
         can_save = (
             embed_inference is not None
             and conn is not None
-            and name != sp                          # not a real person name
             and embed_duration >= MIN_SAVE_SECONDS  # too short for a reliable embedding
             and query_vec is not None
         )
