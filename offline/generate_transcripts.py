@@ -445,7 +445,22 @@ def confirm_secure_environment():
         sys.exit(1)
 
 
+def print_help():
+    prog = os.path.basename(sys.argv[0])
+    print(__doc__)
+    print(f"Usage: {prog} [DIRECTORY]")
+    print()
+    print("Arguments:")
+    print("  DIRECTORY    Directory to scan for audio + whisper JSON files (default: cwd).")
+    print()
+    print("Options:")
+    print("  -h, --help   Show this help and exit.")
+
+
 def main():
+    if any(arg in ("-h", "--help") for arg in sys.argv[1:]):
+        print_help()
+        return
     confirm_secure_environment()
     script_dir = os.path.dirname(os.path.abspath(__file__))
     target_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.getcwd()
