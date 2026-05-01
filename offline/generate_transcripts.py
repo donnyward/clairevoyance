@@ -17,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 
+os.environ["HF_HUB_OFFLINE"] = "1"
+
 
 HF_TOKEN = "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"
 DB_FILENAME = "speakers.db"

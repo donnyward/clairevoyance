@@ -10,6 +10,19 @@ You'll also need `ffmpeg` on `PATH` (the shell scripts shell out to it for resam
 
 A Hugging Face token with the pyannote terms accepted is required; the token is currently hardcoded in the scripts.
 
+### Pre-download models for offline use
+
+The shell scripts and `generate_transcripts.py` set `HF_HUB_OFFLINE=1`, so all
+models must already be cached locally. Run the top-level downloader once with
+internet access to seed the caches:
+
+```bash
+HF_TOKEN=hf_xxx uv run ../download_models.py
+```
+
+Subsequent runs work without network as long as package versions in `uv.lock`
+don't change.
+
 ## Usage
 
 Run the scripts from the directory containing the audio files. They discover `*.m4a`, `*.mp3`, `*.flac` recursively under `.`.

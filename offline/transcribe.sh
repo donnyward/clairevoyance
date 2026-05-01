@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+export HF_HUB_OFFLINE=1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
