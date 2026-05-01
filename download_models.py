@@ -7,6 +7,7 @@
 #   "torch",
 #   "torchaudio",
 #   "whisperx",
+#   "resemblyzer",
 # ]
 # ///
 """One-time model download for both claire/ and offline/ subprojects.
@@ -77,6 +78,14 @@ def main():
     print("\n[offline] pyannote diarization pipeline (segmentation + wespeaker)...")
     from whisperx.diarize import DiarizationPipeline
     DiarizationPipeline(token=token, device="cpu")
+
+    print("\n[offline] pyannote/wespeaker-voxceleb-resnet34-LM (standalone embedding)...")
+    from pyannote.audio import Model
+    Model.from_pretrained("pyannote/wespeaker-voxceleb-resnet34-LM", use_auth_token=token)
+
+    print("\n[claire] resemblyzer VoiceEncoder (~17MB)...")
+    from resemblyzer import VoiceEncoder
+    VoiceEncoder()
 
     print("\nDone. All models cached locally. Set HF_HUB_OFFLINE=1 at runtime.")
 
