@@ -4,6 +4,7 @@ set -uo pipefail
 export HF_HUB_OFFLINE=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HF_TOKEN="$(cat "$SCRIPT_DIR/../hf_token")"
 
 trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
 
@@ -123,7 +124,7 @@ for i in "${!queue_files[@]}"; do
     --batch_size 4
     --compute_type int8
     --diarize
-    --hf_token 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
+    --hf_token "$HF_TOKEN"
     --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
     --output_format json
     --language en

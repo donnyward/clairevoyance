@@ -6,3 +6,4 @@ speakers.db
 speakers.db-journal
 __pycache__/
 .venv/
+hf_token

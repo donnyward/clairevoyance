@@ -29,7 +29,12 @@ os.environ["HF_HUB_DISABLE_XET"] = "1"
 def main():
     token = os.environ.get("HF_TOKEN")
     if not token:
-        print("ERROR: Set HF_TOKEN=hf_xxx")
+        token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hf_token")
+        if os.path.exists(token_path):
+            with open(token_path, "r", encoding="utf-8") as f:
+                token = f.read().strip()
+    if not token:
+        print("ERROR: Set HF_TOKEN=hf_xxx or write the token to ./hf_token")
         print("  Token: https://huggingface.co/settings/tokens")
         print("  Accept terms for each gated repo:")
         print("    https://huggingface.co/pyannote/segmentation-3.0")

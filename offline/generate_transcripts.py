@@ -20,7 +20,9 @@ import tempfile
 os.environ["HF_HUB_OFFLINE"] = "1"
 
 
-HF_TOKEN = "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"
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(_REPO_ROOT, "hf_token"), "r", encoding="utf-8") as _f:
+    HF_TOKEN = _f.read().strip()
 DB_FILENAME = "speakers.db"
 MIN_SAVE_SECONDS = 3.0
 MAX_SAVE_SECONDS = 20.0  # cap enrollment clip length; past ~20s quality plateaus
