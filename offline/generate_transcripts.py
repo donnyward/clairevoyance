@@ -433,7 +433,20 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
     return True
 
 
+SECURE_ENV_PHRASE = "I'm in a secure environment and would like to begin generating transcripts."
+
+
+def confirm_secure_environment():
+    print("Are you in a secure environment to use this command?")
+    print(f'To confirm, type exactly: {SECURE_ENV_PHRASE}')
+    response = input("> ").strip()
+    if response != SECURE_ENV_PHRASE:
+        print("Confirmation phrase did not match. Aborting.", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
+    confirm_secure_environment()
     script_dir = os.path.dirname(os.path.abspath(__file__))
     target_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.getcwd()
 
