@@ -435,6 +435,7 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.getcwd()
 
     embed_inference = load_embedding_model(HF_TOKEN)
     conn = None
@@ -450,7 +451,7 @@ def main():
     count_skipped_exists = 0
     count_skipped_no_json = 0
     count_skipped_diarization = 0
-    for root, _dirs, files in os.walk(script_dir):
+    for root, _dirs, files in os.walk(target_dir):
         _dirs.sort()
         for fname in sorted(files):
             base, ext = os.path.splitext(fname)
