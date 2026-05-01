@@ -76,7 +76,7 @@ def main():
 
     print("\n[offline] pyannote diarization pipeline (segmentation + wespeaker)...")
     from whisperx.diarize import DiarizationPipeline
-    DiarizationPipeline(use_auth_token=token, device="cpu")
+    DiarizationPipeline(token=token, device="cpu")
 
     print("\nDone. All models cached locally. Set HF_HUB_OFFLINE=1 at runtime.")
 
