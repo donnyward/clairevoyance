@@ -264,7 +264,8 @@ def process_json(json_path, txt_path, audio_path, embed_inference, conn):
         print(f"  No speaker labels found, skipping.")
         return True
 
-    print(f"\n--- {os.path.basename(json_path)} ---\n")
+    print(f"\n--- {os.path.basename(json_path)} ---")
+    print(f"{len(speakers)} speakers\n")
     name_map = {}
     for sp in speakers:
         _, start, end = find_longest_line(groups, sp)
