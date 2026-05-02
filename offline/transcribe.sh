@@ -5,6 +5,7 @@ export HF_HUB_OFFLINE=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HF_TOKEN="$(cat "$SCRIPT_DIR/../hf_token")"
+TARGET_DIR="${1:-.}"
 
 trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
 
@@ -12,7 +13,7 @@ trap 'rm -f /tmp/whisper_convert_$$_*.wav 2>/dev/null' EXIT
 all_files=()
 while IFS= read -r f; do
   all_files+=("$f")
-done < <(find . -type f \( -iname '*.m4a' -o -iname '*.mp3' -o -iname '*.flac' \) | sort)
+done < <(find "$TARGET_DIR" -type f \( -iname '*.m4a' -o -iname '*.mp3' -o -iname '*.flac' \) | sort)
 
 total_all=${#all_files[@]}
 if [ "$total_all" -eq 0 ]; then
