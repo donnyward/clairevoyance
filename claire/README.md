@@ -90,4 +90,4 @@ To set up on a new machine:
 ./nemo_stream.py        # or: uv run nemo_stream.py
 ```
 
-No speaker diarization, no transcript file, no timestamps yet — see the TODO at the top of the file. The full backstory (why not parakeet-mlx, why cache-aware streaming, what's traded away vs batch mode) lives in the module docstring.
+No speaker diarization, no transcript file yet — see the TODO at the top of the file. The full backstory (why not parakeet-mlx, why cache-aware streaming, what's traded away vs batch mode) lives in the module docstring.

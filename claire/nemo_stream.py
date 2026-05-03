@@ -25,13 +25,12 @@ Streaming gives up beam search / ILM subtraction / KenLM fusion (those only
 exist in batch mode), which is ~0.3% absolute WER. Worth it for constant
 performance on unbounded input.
 
-TODO: stamp each emitted delta with a wall-clock timestamp and append to
-~/transcripts/live.txt the way claire.py does. For now, raw text -> stdout.
+TODO: append each emitted line to ~/transcripts/live.txt the way claire.py does.
 """
 import os
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-import collections, sys, threading
+import collections, datetime, sys, threading
 import numpy as np
 import sounddevice as sd
 import mlx.core as mx
@@ -49,6 +48,13 @@ print(f"Streaming from microphone (chunk={CHUNK_MS}ms, Ctrl+C to stop)", flush=T
 buffer   = collections.deque()
 buf_lock = threading.Lock()
 
+def emit(event):
+    text = event.text_delta.strip()
+    if not text:
+        return
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    print(f"[{ts}] {text}", flush=True)
+
 def audio_cb(indata, frames, time, status):
     if status:
         print(status, file=sys.stderr, flush=True)
@@ -65,8 +71,7 @@ try:
                     accumulated = np.concatenate([accumulated, buffer.popleft()])
             while len(accumulated) >= CHUNK_SAMPLES:
                 chunk_data, accumulated = accumulated[:CHUNK_SAMPLES], accumulated[CHUNK_SAMPLES:]
-                event = session.push(mx.array(chunk_data))
-                print(event.text_delta, end="", flush=True)
+                emit(session.push(mx.array(chunk_data)))
             sd.sleep(50)
 except KeyboardInterrupt:
     pass
@@ -75,7 +80,5 @@ with buf_lock:
     while buffer:
         accumulated = np.concatenate([accumulated, buffer.popleft()])
 if len(accumulated) > 0:
-    event = session.push(mx.array(accumulated))
-    print(event.text_delta, end="", flush=True)
+    emit(session.push(mx.array(accumulated)))
 session.flush()
-print()
