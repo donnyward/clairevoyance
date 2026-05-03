@@ -54,6 +54,9 @@ def main():
     import torch
     torch.hub.load("snakers4/silero-vad", "silero_vad", trust_repo=True, verbose=False)
 
+    print("\n[claire] dboris/nemotron-asr-mlx (~2.5GB) -> default HF cache...")
+    snapshot_download("dboris/nemotron-asr-mlx")
+
     # --- offline/: HF cache models (whisperx + generate_transcripts read from cache) ---
     # Use whisperx's own loaders so every cache it touches at runtime is warmed:
     # faster-whisper weights, the torchaudio wav2vec2 bundle, the diarization
