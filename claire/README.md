@@ -11,7 +11,7 @@ Requires [uv](https://docs.astral.sh/uv/). Dependencies and the Python interpret
 #    https://huggingface.co/settings/tokens
 #    https://huggingface.co/pyannote/segmentation-3.0
 
-# 2. Download all models (~800MB for whisper large-v3-turbo + smaller models).
+# 2. Download all models (~3.5GB: whisper large-v3-turbo + nemotron-asr-mlx + smaller models).
 #    The downloader lives in ../download/ and seeds caches for both subprojects.
 cd ../download && HF_TOKEN=hf_xxx uv run download_models.py && cd -
 ```
@@ -81,3 +81,13 @@ To set up on a new machine:
 - **Segmentation** - pyannote segmentation-3.0 separates overlapping speakers within each chunk
 - **Speaker ID** - resemblyzer assigns consistent speaker labels across the session
 - **Transcription** - mlx-whisper (large-v3-turbo) runs Whisper natively on Apple Silicon
+
+## Experimental: nemo_stream.py
+
+`nemo_stream.py` is a standalone streaming-ASR experiment that captures the mic and prints transcribed text to stdout in ~1.1s increments using NVIDIA Nemotron-ASR (MLX port) in cache-aware Conformer streaming mode. Memory and per-chunk latency stay constant regardless of how long the mic has been open, which makes it the candidate replacement for the mlx-whisper leg of the pipeline above.
+
+```bash
+./nemo_stream.py        # or: uv run nemo_stream.py
+```
+
+No speaker diarization, no transcript file, no timestamps yet — see the TODO at the top of the file. The full backstory (why not parakeet-mlx, why cache-aware streaming, what's traded away vs batch mode) lives in the module docstring.
