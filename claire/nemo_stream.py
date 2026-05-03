@@ -31,24 +31,41 @@ TODO: stamp each emitted delta with a wall-clock timestamp and append to
 import os
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-from nemotron_asr_mlx import from_pretrained
-from nemotron_asr_mlx.audio import load_audio
+import collections, threading
+import numpy as np
+import sounddevice as sd
 import mlx.core as mx
-import sys
+from nemotron_asr_mlx import from_pretrained
 
-model = from_pretrained("dboris/nemotron-asr-mlx")
+SAMPLE_RATE   = 16000
+CHUNK_MS      = 1120                              # one of: 80, 160, 560, 1120 — 1120 = max accuracy
+CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000    # 17,920 samples
 
-audio = load_audio(sys.argv[1])  # mono float32 @ 16 kHz via ffmpeg
+print("Loading nemotron-asr-mlx...", flush=True)
+model   = from_pretrained("dboris/nemotron-asr-mlx")
+session = model.create_stream(chunk_ms=CHUNK_MS)
+print(f"Streaming from microphone (chunk={CHUNK_MS}ms, Ctrl+C to stop)", flush=True)
 
-chunk_ms = 1120                   # one of: 80, 160, 560, 1120 — 1120 = max accuracy
-chunk_samples = 16000 * chunk_ms // 1000
+buffer   = collections.deque()
+buf_lock = threading.Lock()
 
-session = model.create_stream(chunk_ms=chunk_ms)
+def audio_cb(indata, frames, time, status):
+    with buf_lock:
+        buffer.append(indata[:, 0].copy())
 
-for start in range(0, len(audio), chunk_samples):
-    chunk = mx.array(audio[start:start + chunk_samples])
-    event = session.push(chunk)
-    print(event.text_delta, end="", flush=True)
+accumulated = np.array([], dtype=np.float32)
 
-session.flush()
-print()
+with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_cb):
+    try:
+        while True:
+            with buf_lock:
+                while buffer:
+                    accumulated = np.concatenate([accumulated, buffer.popleft()])
+            while len(accumulated) >= CHUNK_SAMPLES:
+                chunk_data, accumulated = accumulated[:CHUNK_SAMPLES], accumulated[CHUNK_SAMPLES:]
+                event = session.push(mx.array(chunk_data))
+                print(event.text_delta, end="", flush=True)
+            sd.sleep(50)
+    except KeyboardInterrupt:
+        session.flush()
+        print()
