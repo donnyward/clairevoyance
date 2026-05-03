@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run
 """Streaming transcription experiment using NVIDIA Nemotron-ASR (MLX port).
 
 Why this and not the alternatives:
