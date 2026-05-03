@@ -24,8 +24,6 @@ costs the same per chunk at hour 9 as it did at second 5.
 Streaming gives up beam search / ILM subtraction / KenLM fusion (those only
 exist in batch mode), which is ~0.3% absolute WER. Worth it for constant
 performance on unbounded input.
-
-TODO: append each emitted line to ~/transcripts/live.txt the way claire.py does.
 """
 import os
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -36,14 +34,17 @@ import sounddevice as sd
 import mlx.core as mx
 from nemotron_asr_mlx import from_pretrained
 
+LIVE_FILE     = os.path.expanduser("~/transcripts/live.txt")
 SAMPLE_RATE   = 16000
 CHUNK_MS      = 1120                              # one of: 80, 160, 560, 1120 — 1120 = max accuracy
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000    # 17,920 samples
 
+os.makedirs(os.path.dirname(LIVE_FILE), exist_ok=True)
+
 print("Loading nemotron-asr-mlx...", flush=True)
 model   = from_pretrained("dboris/nemotron-asr-mlx")
 session = model.create_stream(chunk_ms=CHUNK_MS)
-print(f"Streaming from microphone (chunk={CHUNK_MS}ms, Ctrl+C to stop)", flush=True)
+print(f"Transcribing → {LIVE_FILE} (chunk={CHUNK_MS}ms, Ctrl+C to stop)", flush=True)
 
 buffer   = collections.deque()
 buf_lock = threading.Lock()
@@ -53,7 +54,10 @@ def emit(event):
     if not text:
         return
     ts = datetime.datetime.now().strftime("%H:%M:%S")
-    print(f"[{ts}] {text}", flush=True)
+    line = f"[{ts}] {text}"
+    print(line, flush=True)
+    with open(LIVE_FILE, "a") as f:
+        f.write(line + "\n")
 
 def audio_cb(indata, frames, time, status):
     if status:

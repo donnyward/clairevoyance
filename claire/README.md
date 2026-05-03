@@ -90,4 +90,4 @@ To set up on a new machine:
 ./nemo_stream.py        # or: uv run nemo_stream.py
 ```
 
-No speaker diarization, no transcript file yet — see the TODO at the top of the file. The full backstory (why not parakeet-mlx, why cache-aware streaming, what's traded away vs batch mode) lives in the module docstring.
+Output is printed to the console and appended to `~/transcripts/live.txt`, matching `claire.py`'s drop-in format (no speaker labels yet — Nemotron-ASR doesn't do diarization). The full backstory (why not parakeet-mlx, why cache-aware streaming, what's traded away vs batch mode) lives in the module docstring.
