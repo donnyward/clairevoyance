@@ -31,7 +31,7 @@ TODO: stamp each emitted delta with a wall-clock timestamp and append to
 import os
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-import collections, threading
+import collections, sys, threading
 import numpy as np
 import sounddevice as sd
 import mlx.core as mx
@@ -50,13 +50,15 @@ buffer   = collections.deque()
 buf_lock = threading.Lock()
 
 def audio_cb(indata, frames, time, status):
+    if status:
+        print(status, file=sys.stderr, flush=True)
     with buf_lock:
         buffer.append(indata[:, 0].copy())
 
 accumulated = np.array([], dtype=np.float32)
 
-with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_cb):
-    try:
+try:
+    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32", callback=audio_cb):
         while True:
             with buf_lock:
                 while buffer:
@@ -66,6 +68,14 @@ with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_cb):
                 event = session.push(mx.array(chunk_data))
                 print(event.text_delta, end="", flush=True)
             sd.sleep(50)
-    except KeyboardInterrupt:
-        session.flush()
-        print()
+except KeyboardInterrupt:
+    pass
+
+with buf_lock:
+    while buffer:
+        accumulated = np.concatenate([accumulated, buffer.popleft()])
+if len(accumulated) > 0:
+    event = session.push(mx.array(accumulated))
+    print(event.text_delta, end="", flush=True)
+session.flush()
+print()
