@@ -24,7 +24,12 @@ costs the same per chunk at hour 9 as it did at second 5.
 Streaming gives up beam search / ILM subtraction / KenLM fusion (those only
 exist in batch mode), which is ~0.3% absolute WER. Worth it for constant
 performance on unbounded input.
+
+TODO: stamp each emitted delta with a wall-clock timestamp and append to
+~/transcripts/live.txt the way claire.py does. For now, raw text -> stdout.
 """
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 from nemotron_asr_mlx import from_pretrained
 from nemotron_asr_mlx.audio import load_audio
