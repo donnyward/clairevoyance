@@ -28,7 +28,7 @@ performance on unbounded input.
 import os
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-import collections, datetime, sys, threading
+import datetime, queue, sys
 import numpy as np
 import sounddevice as sd
 import mlx.core as mx
@@ -44,10 +44,17 @@ os.makedirs(os.path.dirname(LIVE_FILE), exist_ok=True)
 print("Loading nemotron-asr-mlx...", flush=True)
 model   = from_pretrained("dboris/nemotron-asr-mlx")
 session = model.create_stream(chunk_ms=CHUNK_MS)
+
+# JIT-compile MLX kernels on a silent dummy chunk so the first real chunk of
+# speech doesn't sit in the audio queue waiting for compilation. reset()
+# discards the dummy's cache state so the encoder sees the live audio fresh.
+print("Warming up...", flush=True)
+session.push(mx.array(np.zeros(CHUNK_SAMPLES, dtype=np.float32)))
+session.reset()
+
 print(f"Transcribing → {LIVE_FILE} (chunk={CHUNK_MS}ms, Ctrl+C to stop)", flush=True)
 
-buffer   = collections.deque()
-buf_lock = threading.Lock()
+audio_q: queue.Queue = queue.Queue()
 
 def emit(event):
     text = event.text_delta.strip()
@@ -62,27 +69,21 @@ def emit(event):
 def audio_cb(indata, frames, time, status):
     if status:
         print(status, file=sys.stderr, flush=True)
-    with buf_lock:
-        buffer.append(indata[:, 0].copy())
-
-accumulated = np.array([], dtype=np.float32)
+    audio_q.put(indata[:, 0].copy())
 
 try:
-    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32", callback=audio_cb):
+    with sd.InputStream(
+        samplerate=SAMPLE_RATE,
+        channels=1,
+        dtype="float32",
+        blocksize=CHUNK_SAMPLES,            # one full chunk per callback — no accumulator needed
+        callback=audio_cb,
+    ):
         while True:
-            with buf_lock:
-                while buffer:
-                    accumulated = np.concatenate([accumulated, buffer.popleft()])
-            while len(accumulated) >= CHUNK_SAMPLES:
-                chunk_data, accumulated = accumulated[:CHUNK_SAMPLES], accumulated[CHUNK_SAMPLES:]
-                emit(session.push(mx.array(chunk_data)))
-            sd.sleep(50)
+            emit(session.push(mx.array(audio_q.get())))
 except KeyboardInterrupt:
     pass
 
-with buf_lock:
-    while buffer:
-        accumulated = np.concatenate([accumulated, buffer.popleft()])
-if len(accumulated) > 0:
-    emit(session.push(mx.array(accumulated)))
+while not audio_q.empty():
+    emit(session.push(mx.array(audio_q.get_nowait())))
 session.flush()
