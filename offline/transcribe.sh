@@ -41,14 +41,14 @@ for src in "${all_files[@]}"; do
 
   while :; do
     echo "" > /dev/tty
-    printf "(%d/%d) %s\nHow many speakers? [Enter=auto-detect, number=fixed, 'skip'=skip file] " \
+    printf "(%d/%d) %s\nHow many speakers? [Enter=auto-detect, number=fixed, 's'=skip file] " \
       "$idx" "$total_all" "$src" > /dev/tty
     read -r answer < /dev/tty
     if [[ -z "$answer" ]]; then
       queue_files+=("$src")
       queue_speakers+=("")
       break
-    elif [[ "$answer" == "skip" ]]; then
+    elif [[ "$answer" == "s" ]]; then
       echo "  -> will skip this file" > /dev/tty
       skipped_user=$((skipped_user+1))
       break
@@ -57,7 +57,7 @@ for src in "${all_files[@]}"; do
       queue_speakers+=("$answer")
       break
     else
-      echo "  invalid: enter a positive integer, press Enter, or type 'skip'" > /dev/tty
+      echo "  invalid: enter a positive integer, press Enter, or type 's'" > /dev/tty
     fi
   done
 done
