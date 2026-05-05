@@ -119,11 +119,8 @@ for i in "${!queue_files[@]}"; do
     continue
   fi
 
-  wx_args=(
+  mlx_args=(
     --model large-v3
-    --device cpu
-    --batch_size 4
-    --compute_type int8
     --diarize
     --hf_token "$HF_TOKEN"
     --align_model WAV2VEC2_ASR_LARGE_LV60K_960H
@@ -132,14 +129,14 @@ for i in "${!queue_files[@]}"; do
     --output_dir "$dir"
   )
   if [[ -n "$spk" ]]; then
-    wx_args+=(--min_speakers "$spk" --max_speakers "$spk")
+    mlx_args+=(--min_speakers "$spk" --max_speakers "$spk")
   fi
 
-  echo "  running: uv run --project \"$SCRIPT_DIR\" whisperx ${wx_args[*]} \"$tmp_wav\""
+  echo "  running: uv run --project \"$SCRIPT_DIR\" whispermlx ${mlx_args[*]} \"$tmp_wav\""
 
-  if ! uv run --project "$SCRIPT_DIR" whisperx "${wx_args[@]}" "$tmp_wav" </dev/null; then
-    echo "!! whisperx failed on: $src -- continuing"
-    failed_files+=("whisperx: $src")
+  if ! uv run --project "$SCRIPT_DIR" whispermlx "${mlx_args[@]}" "$tmp_wav" </dev/null; then
+    echo "!! whispermlx failed on: $src -- continuing"
+    failed_files+=("whispermlx: $src")
     rm -f "$tmp_wav"
     continue
   fi
