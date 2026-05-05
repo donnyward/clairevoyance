@@ -1,6 +1,6 @@
 # Offline
 
-Batch transcription of recorded audio files (m4a/mp3/flac) with WhisperX, plus speaker-name resolution and enrollment via pyannote embeddings.
+Batch transcription of recorded audio files (m4a/mp3/flac) with whisper-mlx (MLX-backed Whisper for Apple Silicon), plus speaker-name resolution and enrollment via pyannote embeddings.
 
 ## Setup
 
@@ -25,24 +25,19 @@ don't change.
 
 ## Usage
 
-Run the scripts from the directory containing the audio files. They discover `*.m4a`, `*.mp3`, `*.flac` recursively under `.`.
+### Transcribe
 
-### Transcribe (CPU, Apple Silicon / generic)
-
-```bash
-/path/to/offline/transcribe.sh
-```
-
-### Transcribe (CUDA GPU)
+`transcribe.sh` searches the current directory by default, or pass a starting directory as the first argument. It discovers `*.m4a`, `*.mp3`, `*.flac` recursively.
 
 ```bash
-/path/to/offline/transcribe_gpu.sh
+/path/to/offline/transcribe.sh                       # search cwd
+/path/to/offline/transcribe.sh /path/to/recordings   # search a specific directory
 ```
 
-Both scripts:
-1. List all audio files and skip any with an existing `*_whisper.json` next to them.
-2. Prompt per file: Enter for auto-detect speakers, a number to fix the speaker count, or `skip`.
-3. Run `ffmpeg` → `whisperx --diarize` and write `<basename>_whisper.json` next to each source file.
+The script:
+1. Lists all audio files and skips any with an existing `*_whisper.json` next to them.
+2. Prompts per file: Enter for auto-detect speakers, a number to fix the speaker count, or `s` to skip.
+3. Runs `ffmpeg` → `whispermlx --diarize` and writes `<basename>_whisper.json` next to each source file.
 
 ### Generate named transcripts from `*_whisper.json`
 
