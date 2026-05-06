@@ -9,5 +9,4 @@ dependencies = [
     "soundfile",
     "torch",
     "whispermlx>=3.12.1",
-    "whisperx",
 ]
