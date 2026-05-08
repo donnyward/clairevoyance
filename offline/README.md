@@ -1,6 +1,15 @@
 # Offline
 
-Batch transcription of recorded audio files (m4a/mp3/flac) with whisper-mlx (MLX-backed Whisper for Apple Silicon), plus speaker-name resolution and enrollment via pyannote embeddings.
+Pipeline for archiving and transcribing recorded audio (m4a/mp3/flac) on Apple Silicon. Stages new files from `/tmp` into a date-organized archive, transcribes with whisper-mlx, and resolves speaker names via pyannote embeddings.
+
+## Pipeline
+
+Typical flow for new recordings:
+
+1. Drop audio files into `/tmp` (exported from Voice Memos, copied from other recorders, etc.). Filenames must start with `YYYYMMDD_`.
+2. `./ingest.py <archive_root>` — moves them into `<archive_root>/YYYY-MM-DD/` and extracts any embedded iOS Voice Memo transcripts.
+3. `./transcribe.sh <archive_root>` — generates `*_whisper.json` for any audio missing one.
+4. `generate_transcripts.py <archive_root>` — produces named, speaker-resolved text transcripts from the whisper JSON.
 
 ## Setup
 
@@ -24,6 +33,23 @@ Subsequent runs work without network as long as package versions in `uv.lock`
 don't change.
 
 ## Usage
+
+### Ingest
+
+`ingest.py` moves audio files (`.m4a`, `.mp3`, `.flac`) from `/tmp` into a date-organized folder under the archive root, and extracts any embedded iOS Voice Memo transcripts. Stdlib-only, no `uv` needed.
+
+```bash
+/path/to/offline/ingest.py /path/to/archive
+```
+
+Phase 1 — for each audio file in `/tmp` whose name starts with `YYYYMMDD_`:
+- Moves it to `<archive>/YYYY-MM-DD/`.
+- Also moves any `/tmp/*.txt` whose basename starts with the audio file's stem (e.g. `20260101_120000_notes.txt` follows `20260101_120000.m4a`).
+- Files without a date prefix are warned and left in `/tmp`.
+
+Phase 2 — for each `.m4a` in the archive without a `_voicememo.txt` sidecar, extracts the iOS Voice Memo transcript from the `moov/trak/udta/tsrp` atom and writes it to `<basename>_voicememo.txt`. Files lacking the atom (e.g. Samsung Recorder m4a) are logged but not flagged.
+
+A summary at the end reports moved / skipped / extracted counts for both phases.
 
 ### Transcribe
 

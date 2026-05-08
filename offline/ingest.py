@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy m4a files from /tmp into date-organized folders and extract Voice Memo transcripts."""
+"""Copy audio files from /tmp into date-organized folders and extract Voice Memo transcripts."""
 
 import glob
 import json
@@ -11,6 +11,7 @@ import sys
 from datetime import datetime
 
 DATE_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})_")
+AUDIO_EXTS = (".m4a", ".mp3", ".flac")
 
 
 def log(msg):
@@ -32,26 +33,47 @@ def err(msg):
 # ----------
 # Phase 1
 # ----------
-def move_from_tmp(root_dir):
-    log("=== Phase 1: Move m4a files from /tmp ===")
-    for path in sorted(glob.glob("/tmp/*.m4a")):
+def move_from_tmp(root_dir, stats):
+    log("=== Phase 1: Move audio files from /tmp ===")
+    audio_files = sorted(
+        p for p in glob.glob("/tmp/*")
+        if os.path.splitext(p)[1].lower() in AUDIO_EXTS
+    )
+    for path in audio_files:
         fname = os.path.basename(path)
         m = DATE_RE.match(fname)
         if not m:
             warn(f"Cannot parse date from filename: {fname} -- skipping")
+            stats["audio_no_date"] += 1
             continue
 
+        audio_stem = os.path.splitext(fname)[0]
         date_dir = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
         target_dir = os.path.join(root_dir, date_dir)
         target_file = os.path.join(target_dir, fname)
 
         if os.path.isfile(target_file):
             skip(f"{fname} (already in {date_dir}/)")
-            continue
+            stats["audio_skipped"] += 1
+        else:
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.move(path, target_file)
+            log(f"MOVED {fname} -> {date_dir}/")
+            stats["audio_moved"] += 1
 
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.move(path, target_file)
-        log(f"MOVED {fname} -> {date_dir}/")
+        for txt_path in sorted(glob.glob("/tmp/*.txt")):
+            txt_fname = os.path.basename(txt_path)
+            if not txt_fname.startswith(audio_stem):
+                continue
+            txt_target = os.path.join(target_dir, txt_fname)
+            if os.path.isfile(txt_target):
+                skip(f"{txt_fname} (already in {date_dir}/)")
+                stats["txt_skipped"] += 1
+                continue
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.move(txt_path, txt_target)
+            log(f"MOVED {txt_fname} -> {date_dir}/")
+            stats["txt_moved"] += 1
 
 
 # ----------
@@ -135,7 +157,7 @@ def extract_voicememo(m4a_path, output_path):
         return "OK"
 
 
-def extract_all_voicememos(root_dir):
+def extract_all_voicememos(root_dir, stats):
     log("=== Phase 2: Extract Voice Memo transcripts ===")
     m4a_files = []
     for dirpath, _dirs, files in os.walk(root_dir):
@@ -151,22 +173,49 @@ def extract_all_voicememos(root_dir):
 
         if os.path.isfile(voicememo_txt):
             skip(os.path.basename(voicememo_txt))
+            stats["vm_already"] += 1
             continue
 
         try:
             result = extract_voicememo(m4a_path, voicememo_txt)
         except Exception as e:
             err(f"{fname}: tsrp extraction failed: {e}")
+            stats["vm_errors"] += 1
             continue
 
         if result == "OK":
             log(f"EXTRACTED voicememo from {fname}")
+            stats["vm_extracted"] += 1
         elif result == "NO_TSRP":
-            warn(f"{fname}: no tsrp atom found (no Voice Memo transcript generated?)")
+            log(f"{fname}: no embedded Voice Memo transcript")
+            stats["vm_no_tsrp"] += 1
         elif result == "NO_JSON":
             warn(f"{fname}: tsrp atom found but contains no JSON data")
+            stats["vm_anomaly"] += 1
         elif result == "EMPTY_RUNS":
             warn(f"{fname}: tsrp atom found but transcript is empty")
+            stats["vm_anomaly"] += 1
+
+
+# ----------
+# Summary
+# ----------
+def print_summary(stats):
+    log("=== Summary ===")
+    log(
+        f"Phase 1: audio moved={stats['audio_moved']} "
+        f"skipped={stats['audio_skipped']} "
+        f"no_date={stats['audio_no_date']} | "
+        f"txt moved={stats['txt_moved']} "
+        f"skipped={stats['txt_skipped']}"
+    )
+    log(
+        f"Phase 2: voicememo extracted={stats['vm_extracted']} "
+        f"already={stats['vm_already']} "
+        f"none_embedded={stats['vm_no_tsrp']} "
+        f"anomaly={stats['vm_anomaly']} "
+        f"errors={stats['vm_errors']}"
+    )
 
 
 # ----------
@@ -182,8 +231,22 @@ def main():
         print(f"Error: {root_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
-    move_from_tmp(root_dir)
-    extract_all_voicememos(root_dir)
+    stats = {
+        "audio_moved": 0,
+        "audio_skipped": 0,
+        "audio_no_date": 0,
+        "txt_moved": 0,
+        "txt_skipped": 0,
+        "vm_extracted": 0,
+        "vm_already": 0,
+        "vm_no_tsrp": 0,
+        "vm_anomaly": 0,
+        "vm_errors": 0,
+    }
+
+    move_from_tmp(root_dir, stats)
+    extract_all_voicememos(root_dir, stats)
+    print_summary(stats)
     log("=== Done ===")
 
 
