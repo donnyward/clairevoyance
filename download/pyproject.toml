@@ -9,5 +9,5 @@ dependencies = [
     "torch",
     "torchaudio",
     "truststore",
-    "whisperx",
+    "whispermlx>=3.12.1",
 ]

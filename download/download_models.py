@@ -57,25 +57,23 @@ def main():
     print("\n[claire] dboris/nemotron-asr-mlx (~2.5GB) -> default HF cache...")
     snapshot_download("dboris/nemotron-asr-mlx")
 
-    # --- offline/: HF cache models (whisperx + generate_transcripts read from cache) ---
-    # Use whisperx's own loaders so every cache it touches at runtime is warmed:
-    # faster-whisper weights, the torchaudio wav2vec2 bundle, the diarization
-    # pipeline (which pulls segmentation-3.0 + wespeaker), and whisperx's VAD.
-    import whisperx
+    # --- offline/: HF cache models (whispermlx + generate_transcripts read from cache) ---
+    # whispermlx uses torchaudio.pipelines to load the wav2vec2 alignment model,
+    # which downloads to ~/.cache/torch/hub/checkpoints/. Warm that cache here
+    # (with truststore active) so runtime never hits the network.
+    import torchaudio
 
-    print("\n[offline] whisperx large-v3 (faster-whisper ~3GB, includes VAD ~17MB)...")
-    whisperx.load_model("large-v3", device="cpu", compute_type="int8")
-
-    print("\n[offline] whisperx align model (WAV2VEC2_ASR_LARGE_LV60K_960H ~1.2GB)...")
-    whisperx.load_align_model(language_code="en", device="cpu")
+    print("\n[offline] torchaudio WAV2VEC2_ASR_LARGE_LV60K_960H (~1.2GB)...")
+    bundle = torchaudio.pipelines.WAV2VEC2_ASR_LARGE_LV60K_960H
+    bundle.get_model()
 
     print("\n[offline] pyannote diarization pipeline (segmentation + wespeaker)...")
-    from whisperx.diarize import DiarizationPipeline
-    DiarizationPipeline(token=token, device="cpu")
+    from pyannote.audio import Pipeline
+    Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", token=token)
 
     print("\n[offline] pyannote/wespeaker-voxceleb-resnet34-LM (standalone embedding)...")
     from pyannote.audio import Model
-    Model.from_pretrained("pyannote/wespeaker-voxceleb-resnet34-LM", use_auth_token=token)
+    Model.from_pretrained("pyannote/wespeaker-voxceleb-resnet34-LM", token=token)
 
     # Note: resemblyzer's VoiceEncoder weights ship bundled in the wheel
     # (resemblyzer/pretrained.pt) — installing the package in claire/ is enough,
